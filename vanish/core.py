@@ -33,3 +33,29 @@ def energy_map(img):
     gx = _convolve3x3(gray, SOBEL_X)
     gy = _convolve3x3(gray, SOBEL_Y)
     return np.sqrt(gx * gx + gy * gy)
+
+
+def cumulative_energy(energy):
+    """Dynamic-programming table. M[r,c] = energy[r,c] + min of the three
+    parents in row r-1 (columns c-1, c, c+1). Vectorized across columns within
+    a row; the loop over rows is inherently sequential.
+
+    Returns (M, backtrack) where backtrack[r,c] is the parent column OFFSET
+    (-1, 0, or +1) chosen for cell (r,c)."""
+    h, w = energy.shape
+    M = energy.astype(np.float64).copy()
+    backtrack = np.zeros((h, w), dtype=np.int64)
+    for r in range(1, h):
+        prev = M[r - 1]
+        left = np.empty(w)
+        left[0] = np.inf
+        left[1:] = prev[:-1]
+        up = prev
+        right = np.empty(w)
+        right[-1] = np.inf
+        right[:-1] = prev[1:]
+        stacked = np.stack([left, up, right])          # (3, w)
+        choice = np.argmin(stacked, axis=0)            # 0=left,1=up,2=right
+        M[r] += np.min(stacked, axis=0)
+        backtrack[r] = choice - 1                      # map to offset -1/0/+1
+    return M, backtrack
