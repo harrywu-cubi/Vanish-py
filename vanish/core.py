@@ -59,3 +59,17 @@ def cumulative_energy(energy):
         M[r] += np.min(stacked, axis=0)
         backtrack[r] = choice - 1                      # map to offset -1/0/+1
     return M, backtrack
+
+
+def find_vertical_seam(energy):
+    """Lowest-energy top-to-bottom seam as an array of column indices."""
+    M, backtrack = cumulative_energy(energy)
+    h, w = M.shape
+    seam = np.zeros(h, dtype=np.int64)
+    c = int(np.argmin(M[-1]))
+    seam[-1] = c
+    for r in range(h - 2, -1, -1):
+        c = c + int(backtrack[r + 1, c])
+        c = max(0, min(w - 1, c))
+        seam[r] = c
+    return seam

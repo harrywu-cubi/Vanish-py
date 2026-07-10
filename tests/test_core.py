@@ -34,3 +34,20 @@ def test_cumulative_energy_small_known_table():
     assert np.allclose(M[1], [3, 2, 8])
     assert np.allclose(M[2], [6, 4, 3])
     assert back.shape == (3, 3)
+
+
+def test_find_vertical_seam_on_known_table():
+    e = np.array([[1.0, 4.0, 3.0],
+                  [2.0, 1.0, 5.0],
+                  [4.0, 2.0, 1.0]])
+    seam = core.find_vertical_seam(e)
+    assert seam.tolist() == [0, 1, 2]
+
+
+def test_seam_is_connected_and_full_height():
+    rng = np.random.default_rng(0)
+    e = rng.random((20, 15))
+    seam = core.find_vertical_seam(e)
+    assert seam.shape == (20,)
+    assert np.all(np.abs(np.diff(seam)) <= 1)
+    assert seam.min() >= 0 and seam.max() < 15
