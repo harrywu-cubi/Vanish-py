@@ -37,3 +37,22 @@ def test_enlarge_preserves_uniform_image():
 def test_resize_noop_when_target_equals_current():
     img = _rand(5, 5)
     assert np.array_equal(features.resize(img, width=5), img)
+
+
+def test_remove_object_erases_masked_blob():
+    img = np.full((12, 16, 3), 100, dtype=np.uint8)
+    img[:, 7:9, :] = 250
+    mask = np.zeros((12, 16), dtype=bool)
+    mask[:, 7:9] = True
+    out = features.remove_object(img, mask, shrink=True)
+    assert out.shape == (12, 14, 3)
+    assert out.max() < 200
+
+
+def test_remove_object_restores_width_when_not_shrinking():
+    img = np.full((12, 16, 3), 100, dtype=np.uint8)
+    img[:, 7:9, :] = 250
+    mask = np.zeros((12, 16), dtype=bool)
+    mask[:, 7:9] = True
+    out = features.remove_object(img, mask, shrink=False)
+    assert out.shape == (12, 16, 3)
