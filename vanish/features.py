@@ -17,10 +17,10 @@ def _enlarge_width(img, num):
         seam = seams[i]
         out = core.insert_seam(out, seam)
         for j in range(i + 1, len(seams)):
-            # Columns equal to the inserted seam shift +2 (skip the new pair).
-            # Columns strictly to the right shift +1 (one pixel was inserted).
-            seams[j][seams[j] == seam] += 2   # +2 keeps later seams clear of the pair
-            seams[j][seams[j] >  seam] += 1   # +1 for columns beyond the insert
+            # compute_seams returns per-row-disjoint columns, so a later seam is
+            # never equal to the one just inserted; each column to its right
+            # shifts by the single pixel that was inserted to its left.
+            seams[j][seams[j] > seam] += 1
     return out
 
 
