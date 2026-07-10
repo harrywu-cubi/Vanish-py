@@ -74,3 +74,27 @@ def test_remove_seam_2d_index_array():
     assert out.shape == (2, 3)
     assert out[0].tolist() == [0, 2, 3]
     assert out[1].tolist() == [0, 1, 3]
+
+
+def test_insert_seam_widens_by_one():
+    img = np.arange(3 * 4 * 3, dtype=np.uint8).reshape(3, 4, 3)
+    seam = np.array([1, 2, 0])
+    out = core.insert_seam(img, seam)
+    assert out.shape == (3, 5, 3)
+
+
+def test_insert_seam_preserves_uniform_image():
+    img = np.full((4, 5, 3), 77, dtype=np.uint8)
+    out = core.insert_seam(img, np.array([2, 2, 2, 2]))
+    assert out.shape == (4, 6, 3)
+    assert np.all(out == 77)
+
+
+def test_compute_seams_returns_original_coordinates():
+    rng = np.random.default_rng(1)
+    img = (rng.random((10, 12, 3)) * 255).astype(np.uint8)
+    seams = core.compute_seams(img, 3)
+    assert len(seams) == 3
+    for s in seams:
+        assert s.shape == (10,)
+        assert s.min() >= 0 and s.max() < 12

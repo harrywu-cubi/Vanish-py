@@ -85,3 +85,37 @@ def remove_seam(img, seam):
     if img.ndim == 3:
         return img[mask].reshape(h, w - 1, img.shape[2])
     return img[mask].reshape(h, w - 1)
+
+
+def insert_seam(img, seam):
+    """Duplicate one pixel per row along the seam; the inserted pixel is the
+    average of the seam pixel and its right neighbor (or the seam pixel itself
+    at the right edge). Returns a copy one column wider."""
+    h, w, c = img.shape
+    out = np.zeros((h, w + 1, c), dtype=img.dtype)
+    for r in range(h):
+        col = int(seam[r])
+        out[r, :col + 1] = img[r, :col + 1]
+        if col + 1 < w:
+            new_px = img[r, col:col + 2].mean(axis=0)
+        else:
+            new_px = img[r, col]
+        out[r, col + 1] = new_px.astype(img.dtype)
+        out[r, col + 2:] = img[r, col + 1:]
+    return out
+
+
+def compute_seams(img, num):
+    """Find `num` lowest-energy seams, returned as column indices in the
+    ORIGINAL image's coordinate system, in removal order. Removing on a working
+    copy while tracking original indices prevents picking the same seam twice."""
+    tmp = img.copy()
+    h, w = img.shape[:2]
+    index = np.tile(np.arange(w), (h, 1))
+    seams = []
+    for _ in range(num):
+        seam = find_vertical_seam(energy_map(tmp))
+        seams.append(index[np.arange(h), seam].copy())
+        tmp = remove_seam(tmp, seam)
+        index = remove_seam(index, seam)
+    return seams
