@@ -39,7 +39,8 @@ def resize(img, width=None, height=None):
     if width is not None:
         out = _resize_width(out, width)
     if height is not None:
-        out = _resize_width(out.transpose(1, 0, 2), height).transpose(1, 0, 2)
+        carved = _resize_width(out.transpose(1, 0, 2), height)
+        out = np.ascontiguousarray(carved.transpose(1, 0, 2))
     return out
 
 
@@ -49,7 +50,8 @@ def enlarge(img, dwidth=0, dheight=0):
     if dwidth:
         out = _enlarge_width(out, dwidth)
     if dheight:
-        out = _enlarge_width(out.transpose(1, 0, 2), dheight).transpose(1, 0, 2)
+        grown = _enlarge_width(out.transpose(1, 0, 2), dheight)
+        out = np.ascontiguousarray(grown.transpose(1, 0, 2))
     return out
 
 
