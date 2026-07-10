@@ -1,0 +1,123 @@
+# tests/test_core.py
+import numpy as np
+from vanish import core
+
+
+def test_to_grayscale_shape_and_values():
+    img = np.zeros((2, 3, 3), dtype=np.uint8)
+    img[..., 0] = 255  # pure red
+    gray = core.to_grayscale(img)
+    assert gray.shape == (2, 3)
+    assert np.allclose(gray, 0.2126 * 255)
+
+
+def test_energy_uniform_image_is_zero():
+    img = np.full((5, 5, 3), 120, dtype=np.uint8)
+    e = core.energy_map(img)
+    assert e.shape == (5, 5)
+    assert np.allclose(e, 0.0)
+
+
+def test_energy_peaks_at_vertical_edge():
+    img = np.zeros((5, 6, 3), dtype=np.uint8)
+    img[:, 3:, :] = 255
+    e = core.energy_map(img)
+    assert e[:, 2:4].mean() > e[:, 0].mean()
+
+
+def test_cumulative_energy_small_known_table():
+    e = np.array([[1.0, 4.0, 3.0],
+                  [2.0, 1.0, 5.0],
+                  [4.0, 2.0, 1.0]])
+    M, back = core.cumulative_energy(e)
+    assert np.allclose(M[0], [1, 4, 3])
+    assert np.allclose(M[1], [3, 2, 8])
+    assert np.allclose(M[2], [6, 4, 3])
+    assert back.shape == (3, 3)
+    # backtrack stores the chosen parent-column offset per cell
+    assert back[1].tolist() == [0, -1, 0]
+    assert back[2].tolist() == [1, 0, -1]
+
+
+def test_find_vertical_seam_on_known_table():
+    e = np.array([[1.0, 4.0, 3.0],
+                  [2.0, 1.0, 5.0],
+                  [4.0, 2.0, 1.0]])
+    seam = core.find_vertical_seam(e)
+    assert seam.tolist() == [0, 1, 2]
+
+
+def test_seam_is_connected_and_full_height():
+    rng = np.random.default_rng(0)
+    e = rng.random((20, 15))
+    seam = core.find_vertical_seam(e)
+    assert seam.shape == (20,)
+    assert np.all(np.abs(np.diff(seam)) <= 1)
+    assert seam.min() >= 0 and seam.max() < 15
+
+
+def test_remove_seam_rgb_shape():
+    img = np.arange(4 * 4 * 3, dtype=np.uint8).reshape(4, 4, 3)
+    seam = np.array([1, 2, 1, 0])
+    out = core.remove_seam(img, seam)
+    assert out.shape == (4, 3, 3)
+
+
+def test_remove_seam_drops_the_seam_pixels():
+    img = np.zeros((3, 3, 3), dtype=np.uint8)
+    img[np.arange(3), np.array([0, 1, 2])] = 255
+    out = core.remove_seam(img, np.array([0, 1, 2]))
+    assert out.shape == (3, 2, 3)
+    assert out.max() == 0
+
+
+def test_remove_seam_2d_index_array():
+    idx = np.tile(np.arange(4), (2, 1))
+    out = core.remove_seam(idx, np.array([1, 2]))
+    assert out.shape == (2, 3)
+    assert out[0].tolist() == [0, 2, 3]
+    assert out[1].tolist() == [0, 1, 3]
+
+
+def test_insert_seam_widens_by_one():
+    img = np.arange(3 * 4 * 3, dtype=np.uint8).reshape(3, 4, 3)
+    seam = np.array([1, 2, 0])
+    out = core.insert_seam(img, seam)
+    assert out.shape == (3, 5, 3)
+
+
+def test_insert_seam_averages_neighbor_and_handles_right_edge():
+    row = np.array([[[0, 0, 0], [10, 10, 10], [20, 20, 20], [100, 100, 100]]],
+                   dtype=np.uint8)  # (1, 4, 3)
+    # interior insert at col 1: new pixel = round(mean(col1, col2)) = 15
+    out = core.insert_seam(row, np.array([1]))
+    assert out.shape == (1, 5, 3)
+    assert out[0, 1].tolist() == [10, 10, 10]
+    assert out[0, 2].tolist() == [15, 15, 15]
+    assert out[0, 3].tolist() == [20, 20, 20]
+    # right-edge insert at the last col: no right neighbor -> duplicate the pixel
+    out2 = core.insert_seam(row, np.array([3]))
+    assert out2.shape == (1, 5, 3)
+    assert out2[0, 3].tolist() == [100, 100, 100]
+    assert out2[0, 4].tolist() == [100, 100, 100]
+
+
+def test_insert_seam_preserves_uniform_image():
+    img = np.full((4, 5, 3), 77, dtype=np.uint8)
+    out = core.insert_seam(img, np.array([2, 2, 2, 2]))
+    assert out.shape == (4, 6, 3)
+    assert np.all(out == 77)
+
+
+def test_compute_seams_returns_original_coordinates():
+    rng = np.random.default_rng(1)
+    img = (rng.random((10, 12, 3)) * 255).astype(np.uint8)
+    seams = core.compute_seams(img, 3)
+    assert len(seams) == 3
+    for s in seams:
+        assert s.shape == (10,)
+        assert s.min() >= 0 and s.max() < 12
+    # each original column is removed at most once, so per row the seams are distinct
+    cols_per_row = np.stack(seams, axis=1)   # (10, 3)
+    for row_cols in cols_per_row:
+        assert len(set(row_cols.tolist())) == 3
