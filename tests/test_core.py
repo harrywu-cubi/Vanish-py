@@ -34,6 +34,9 @@ def test_cumulative_energy_small_known_table():
     assert np.allclose(M[1], [3, 2, 8])
     assert np.allclose(M[2], [6, 4, 3])
     assert back.shape == (3, 3)
+    # backtrack stores the chosen parent-column offset per cell
+    assert back[1].tolist() == [0, -1, 0]
+    assert back[2].tolist() == [1, 0, -1]
 
 
 def test_find_vertical_seam_on_known_table():
@@ -83,6 +86,22 @@ def test_insert_seam_widens_by_one():
     assert out.shape == (3, 5, 3)
 
 
+def test_insert_seam_averages_neighbor_and_handles_right_edge():
+    row = np.array([[[0, 0, 0], [10, 10, 10], [20, 20, 20], [100, 100, 100]]],
+                   dtype=np.uint8)  # (1, 4, 3)
+    # interior insert at col 1: new pixel = round(mean(col1, col2)) = 15
+    out = core.insert_seam(row, np.array([1]))
+    assert out.shape == (1, 5, 3)
+    assert out[0, 1].tolist() == [10, 10, 10]
+    assert out[0, 2].tolist() == [15, 15, 15]
+    assert out[0, 3].tolist() == [20, 20, 20]
+    # right-edge insert at the last col: no right neighbor -> duplicate the pixel
+    out2 = core.insert_seam(row, np.array([3]))
+    assert out2.shape == (1, 5, 3)
+    assert out2[0, 3].tolist() == [100, 100, 100]
+    assert out2[0, 4].tolist() == [100, 100, 100]
+
+
 def test_insert_seam_preserves_uniform_image():
     img = np.full((4, 5, 3), 77, dtype=np.uint8)
     out = core.insert_seam(img, np.array([2, 2, 2, 2]))
@@ -98,3 +117,7 @@ def test_compute_seams_returns_original_coordinates():
     for s in seams:
         assert s.shape == (10,)
         assert s.min() >= 0 and s.max() < 12
+    # each original column is removed at most once, so per row the seams are distinct
+    cols_per_row = np.stack(seams, axis=1)   # (10, 3)
+    for row_cols in cols_per_row:
+        assert len(set(row_cols.tolist())) == 3

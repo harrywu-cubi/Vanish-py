@@ -70,7 +70,10 @@ def find_vertical_seam(energy):
     seam[-1] = c
     for r in range(h - 2, -1, -1):
         c = c + int(backtrack[r + 1, c])
-        c = max(0, min(w - 1, c))
+        # The +inf edge guards in cumulative_energy keep c in range; assert
+        # rather than silently clamp, so a broken invariant surfaces loudly
+        # (a negative c would also index-wrap on the next backtrack lookup).
+        assert 0 <= c < w, "seam left image bounds; DP invariant violated"
         seam[r] = c
     return seam
 
@@ -100,7 +103,7 @@ def insert_seam(img, seam):
             new_px = img[r, col:col + 2].mean(axis=0)
         else:
             new_px = img[r, col]
-        out[r, col + 1] = new_px.astype(img.dtype)
+        out[r, col + 1] = np.round(new_px).astype(img.dtype)
         out[r, col + 2:] = img[r, col + 1:]
     return out
 
