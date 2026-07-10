@@ -41,3 +41,72 @@ def test_cli_shrink_rejects_width_not_smaller(tmp_path):
     _write_img(src, 8, 12)
     with pytest.raises(SystemExit):
         cli.main(["shrink", str(src), str(dst), "--width", "20"])
+
+
+def test_cli_shrink_dw(tmp_path):
+    src, dst = tmp_path / "in.png", tmp_path / "out.png"
+    _write_img(src, 8, 12)
+    cli.main(["shrink", str(src), str(dst), "--dw", "-3"])
+    assert io.load_image(str(dst)).shape == (8, 9, 3)
+
+
+def test_cli_shrink_height(tmp_path):
+    src, dst = tmp_path / "in.png", tmp_path / "out.png"
+    _write_img(src, 12, 10)
+    cli.main(["shrink", str(src), str(dst), "--height", "9"])
+    assert io.load_image(str(dst)).shape == (9, 10, 3)
+
+
+def test_cli_shrink_rejects_equal_and_zero(tmp_path):
+    src, dst = tmp_path / "in.png", tmp_path / "out.png"
+    _write_img(src, 8, 12)
+    with pytest.raises(SystemExit):
+        cli.main(["shrink", str(src), str(dst), "--dw", "0"])     # target == current
+    with pytest.raises(SystemExit):
+        cli.main(["shrink", str(src), str(dst), "--dw", "3"])     # positive dw on shrink
+
+
+def test_cli_enlarge_rejects_negative_dw(tmp_path):
+    src, dst = tmp_path / "in.png", tmp_path / "out.png"
+    _write_img(src, 8, 12)
+    with pytest.raises(SystemExit):
+        cli.main(["enlarge", str(src), str(dst), "--dw", "-3"])
+
+
+def test_cli_energy_basic(tmp_path):
+    src, dst = tmp_path / "in.png", tmp_path / "out.png"
+    _write_img(src, 8, 12)
+    cli.main(["energy", str(src), str(dst)])
+    out = io.load_image(str(dst))
+    assert out.shape == (8, 12, 3)
+    assert out.dtype == np.uint8
+
+
+def test_cli_energy_uniform_no_crash(tmp_path):
+    src, dst = tmp_path / "in.png", tmp_path / "out.png"
+    io.save_image(str(src), np.full((8, 12, 3), 128, dtype=np.uint8))
+    cli.main(["energy", str(src), str(dst)])
+    out = io.load_image(str(dst))
+    assert out.shape == (8, 12, 3)
+    assert out.max() == 0   # uniform image => zero energy everywhere
+
+
+def test_cli_seams_draws_red_without_mutating_input(tmp_path):
+    src, dst = tmp_path / "in.png", tmp_path / "out.png"
+    _write_img(src, 8, 12)
+    original = io.load_image(str(src)).copy()
+    cli.main(["seams", str(src), str(dst), "--count", "2"])
+    out = io.load_image(str(dst))
+    assert out.shape == (8, 12, 3)
+    red = np.all(out == [255, 0, 0], axis=-1)
+    assert red.sum() >= 8                       # at least one full-height seam
+    assert np.array_equal(io.load_image(str(src)), original)   # source untouched
+
+
+def test_cli_seams_rejects_bad_count(tmp_path):
+    src, dst = tmp_path / "in.png", tmp_path / "out.png"
+    _write_img(src, 8, 12)
+    with pytest.raises(SystemExit):
+        cli.main(["seams", str(src), str(dst), "--count", "0"])
+    with pytest.raises(SystemExit):
+        cli.main(["seams", str(src), str(dst), "--count", "12"])   # >= width

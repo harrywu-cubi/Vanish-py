@@ -3,7 +3,8 @@
 logic lives here."""
 import argparse
 import sys
-from vanish import io, features
+import numpy as np
+from vanish import core, io, features
 
 
 def _target(current, absolute, delta):
@@ -56,11 +57,11 @@ def main(argv=None):
         if tw is None and th is None:
             sys.exit("Specify --width/--height or --dw/--dh")
         if args.cmd == "shrink":
-            if tw is not None and tw >= w:
-                sys.exit(f"shrink width must be < {w}")
-            if th is not None and th >= h:
-                sys.exit(f"shrink height must be < {h}")
-        if args.cmd == "enlarge":
+            if tw is not None and not (1 <= tw < w):
+                sys.exit(f"shrink width must be between 1 and {w - 1}")
+            if th is not None and not (1 <= th < h):
+                sys.exit(f"shrink height must be between 1 and {h - 1}")
+        elif args.cmd == "enlarge":
             if tw is not None and tw <= w:
                 sys.exit(f"enlarge width must be > {w}")
             if th is not None and th <= h:
@@ -72,13 +73,13 @@ def main(argv=None):
         out = features.remove_object(img, mask, shrink=args.shrink)
 
     elif args.cmd == "energy":
-        from vanish import core
-        import numpy as np
         e = core.energy_map(img)
         e = (255 * e / e.max()).astype("uint8") if e.max() > 0 else e.astype("uint8")
         out = np.stack([e, e, e], axis=-1)
 
     elif args.cmd == "seams":
+        if not (1 <= args.count < w):
+            sys.exit(f"--count must be between 1 and {w - 1}")
         out = _overlay_seams(img, args.count)
 
     io.save_image(args.output, out)
@@ -86,7 +87,6 @@ def main(argv=None):
 
 def _overlay_seams(img, count):
     """Draw `count` lowest-energy seams in red over a copy of the image."""
-    from vanish import core
     out = img.copy()
     for seam in core.compute_seams(img, count):
         out[range(out.shape[0]), seam] = [255, 0, 0]
