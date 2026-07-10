@@ -51,3 +51,26 @@ def test_seam_is_connected_and_full_height():
     assert seam.shape == (20,)
     assert np.all(np.abs(np.diff(seam)) <= 1)
     assert seam.min() >= 0 and seam.max() < 15
+
+
+def test_remove_seam_rgb_shape():
+    img = np.arange(4 * 4 * 3, dtype=np.uint8).reshape(4, 4, 3)
+    seam = np.array([1, 2, 1, 0])
+    out = core.remove_seam(img, seam)
+    assert out.shape == (4, 3, 3)
+
+
+def test_remove_seam_drops_the_seam_pixels():
+    img = np.zeros((3, 3, 3), dtype=np.uint8)
+    img[np.arange(3), np.array([0, 1, 2])] = 255
+    out = core.remove_seam(img, np.array([0, 1, 2]))
+    assert out.shape == (3, 2, 3)
+    assert out.max() == 0
+
+
+def test_remove_seam_2d_index_array():
+    idx = np.tile(np.arange(4), (2, 1))
+    out = core.remove_seam(idx, np.array([1, 2]))
+    assert out.shape == (2, 3)
+    assert out[0].tolist() == [0, 2, 3]
+    assert out[1].tolist() == [0, 1, 3]

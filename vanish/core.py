@@ -73,3 +73,15 @@ def find_vertical_seam(energy):
         c = max(0, min(w - 1, c))
         seam[r] = c
     return seam
+
+
+def remove_seam(img, seam):
+    """Delete one pixel per row along the seam. Works for (H,W,C) images and
+    (H,W) 2D arrays (used to track indices/masks). Returns a copy one column
+    narrower."""
+    h, w = img.shape[:2]
+    mask = np.ones((h, w), dtype=bool)
+    mask[np.arange(h), seam] = False
+    if img.ndim == 3:
+        return img[mask].reshape(h, w - 1, img.shape[2])
+    return img[mask].reshape(h, w - 1)
