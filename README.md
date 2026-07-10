@@ -43,8 +43,14 @@ considers the cost of every complete path, finds the true minimum.
 ## Install
 
 ```bash
+python -m venv .venv && source .venv/bin/activate   # Windows: source .venv/Scripts/activate
 pip install -e ".[dev]"
+python -m pytest -q                                 # verify: 49 passed
 ```
+
+New here? **[RUNBOOK.md](RUNBOOK.md)** is a complete step-by-step guide (prerequisites →
+setup → tests → CLI → library → demos → troubleshooting) written for someone cloning this
+for the first time.
 
 ## CLI
 
